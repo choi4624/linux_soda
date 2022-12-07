@@ -18,38 +18,8 @@ int sw[4] = {4,17,27,22};
 int led[4] = {23, 24, 25, 1}, flag = 0;
 static struct timer_list timer;
 struct task_struct *thread_id = NULL;
-
-irqreturn_t irq_handler(int irq, void *dev_id){
-    printk(KERN_INFO "Debug %d\n", irq);
-    switch (irq)
-    {
-
-    case 60:
-        printk(KERN_INFO "sw1 interrupt ocurred!\n");
-        timer_led();
-        break;
-    case 61:
-        printk(KERN_INFO "sw2 interrupt ocurred!\n");
-        del_timer(&timer);
-        if (thread_id == NULL)
- 
-        led_cycle_timer();
-        break;
-    case 62:
-        printk(KERN_INFO "sw3 interrupt ocurred!\n");
-        
-        del_timer(&timer);
-        switch_led();
-        break;
-    case 63:
-        printk(KERN_INFO "sw4 interrupt ocurred!\n");
-        del_timer(&timer);
-        break;
-    default:
-        break;
-    }
-    return 0; 
-}
+int ledflag[3] = {0};
+irqreturn_t irq_handler(int irq, void *dev_id);
 
 static void timer_cb(struct timer_list *timer){
     int ret, i;
@@ -78,7 +48,7 @@ static void timer_cb(struct timer_list *timer){
     
 }
 
-static void timer_led(){
+static void timer_led(void){
     int i, ret;
     printk(KERN_INFO"led_module_init -timer!\n");
     for (i = 0; i < 4; i++)
@@ -95,11 +65,11 @@ static void timer_led(){
     add_timer(&timer);
 
         printk(KERN_INFO"led_module_init function_end!\n");
-    return 0;
+
 }
 
 
-static void led_cycle_timer(){
+static int led_cycle_timer(void *arg){
     char value =1, temp = 0;
     int ret, i;
     printk(KERN_INFO "kthread function !\n");
@@ -132,32 +102,62 @@ static void led_cycle_timer(){
     return 0;
 }
 
-static void switch_led(){
-printk(KERN_INFO"switch_module_init!\n");
-    
-    for ( i = 0; i < 3; i++)
+static int switch_led(void *arg){
+    int i, ret, val, res;
+
+    while (!kthread_should_stop())
     {
-        ret = gpio_request(sw[i], "sw");
+            for ( i = 0; i < 3; i++)
+            {
+            val = gpio_request(sw[i], "sw") ;
+            if (val == ledflag[i])
+            {
+                ledflag[i] = 0;
+            }
+            else{
+                ledflag[i] = 1;
+            }
+
+                ret = gpio_direction_output(led[i],ledflag[i]);
+            }
+            
+            if (gpio_request(sw[3], "sw") == 1)
+            {
+                break;
+            }
+            
+     }
+}
+    
+
+static void kthread_switch_start(void){
+printk(KERN_INFO"led&switch_module_init -switch!\n");
+    for (i = 0; i < 4; i++)
+    {
+        gpio_free(sw[i]);
+        gpio_free(led[i]);
+        res = gpio_request(sw[i], "sw");
+        ret = gpio_request(led[i], "LED");
         if (ret < 0)
         {
-            printk(KERN_INFO "switch_module gpio_request failed!\n");
+            printk(KERN_INFO "led_module gpio_Request failed\n");
         }
-        else
-            ret = gpio_direction_input(sw[i]);
-        
-    }
-
-        for (i = 0; i < 3; i++)
-    {
-        ret = gpio_request(led[i], "LED");
-        if (gpio_get_value(sw[i])    == 0)
+        if (res < 0)
         {
-            ret = gpio_direction_output(led[i], LOW);
+            printk(KERN_INFO "switch_module gpio_Request failed\n");
         }
     }
+    if (thread_id == NULL)
+        {
+        thread_id = (struct task_struct *)
+        kthread_run(switch_led,NULL,"switch_led read");
+        }
+}
 
-
-    for (i = 0; i < 3; i++)
+static void kthread_timer_start(void){
+int i, ret;
+printk(KERN_INFO"led_kthread_init!\n");
+    for (i = 0; i < 4; i++)
     {
         ret = gpio_request(led[i], "LED");
         if (ret < 0)
@@ -165,40 +165,123 @@ printk(KERN_INFO"switch_module_init!\n");
             printk(KERN_INFO "led_module gpio_Request failed\n");
         }
     }
-    for (i = 0; i < 3; i++)
-    {
-        if (gpio_get_value(sw[i])    == 1)
-        {
-            ret = gpio_direction_output(led[i], HIGH);
-        }
-    }
-
-    for ( i = 0; i < 3; i++)
-    {
-        val = gpio_get_value(sw[i]);
-        printk(KERN_ALERT "sw %d value = %d\n", i, val);
-    }
-}
-
-static void kthread_start(){
-    {
+if (thread_id == NULL)
+{
     thread_id = (struct task_struct *)
-        kthread_run(kthread_fuction,NULL,"led_th read");    
-    }
+        kthread_run(led_cycle_timer,NULL,"led_th read");
+}
     
 }
 
-static void kthread_stop(){
+static void kthread_timer_stop(void){
+    int i, ret;
+
+    printk(KERN_INFO "kthread timer stop ocurred!\n");
     if (thread_id)  
     {
         kthread_stop(thread_id);
         thread_id = NULL;
+        printk(KERN_INFO "kthread timer stop success!\n");
     }
+}
+/*
+static void switch_interrupt_exit(void){
+    int res, i;
+     printk(KERN_INFO "switch_interrupt_exit!\n"); 
+     for ( i = 0; i < 4; i++)
+     {
+        free_irq(gpio_to_irq(sw[i]),(void *)(irq_handler2));
+        gpio_free(sw[i]);
+        res = request_irq(gpio_to_irq(sw[i]), (irq_handler_t)irq_handler, IRQF_TRIGGER_RISING,"IRQ",(void *)(irq_handler));
+     }
+       
+}
+
+static void switch_interrupt(void){
+    int res, i;
+     printk(KERN_INFO "switch_interrupt_init!\n"); 
+     for ( i = 0; i < 4; i++)
+     {
+
+        res = gpio_request(led[i], "LED");
+        if (res < 0)
+        {
+            printk(KERN_INFO "led_module gpio_Request failed\n");
+        }
+        free_irq(gpio_to_irq(sw[i]),(void *)(irq_handler));
+        res = gpio_request(sw[i], "sw");
+        res = request_irq(gpio_to_irq(sw[i]), (irq_handler_t)irq_handler2, IRQF_TRIGGER_RISING,"IRQ",(void *)(irq_handler2));
+        if(res<0)
+            printk(KERN_INFO "request_irq failed!\n");
+     }
+     return 0;
+       
+}
+
+*/
+
+irqreturn_t irq_handler(int irq, void *dev_id){
+    printk(KERN_INFO "Debug %d\n", irq);
+    int i;
+
+    switch (irq)
+    {
+
+    case 60:
+        printk(KERN_INFO "sw1 interrupt ocurred!\n");
+        printk(KERN_INFO "timer delete!\n");    
+        if(&timer){
+        del_timer(&timer);
+        printk(KERN_INFO "timer stopped\n");    
+        }
+        else{
+        printk(KERN_INFO "no timer\n");    
+        }    
+        timer_led();
+        break;
+    case 61:
+        printk(KERN_INFO "sw2 interrupt ocurred!\n");
+        printk(KERN_INFO "timer delete!\n");    
+        if(&timer){
+        del_timer(&timer);
+        printk(KERN_INFO "timer stopped\n");    
+        }
+        else{
+        printk(KERN_INFO "no timer\n");    
+        }    
+        kthread_timer_start();
+        break;
+    case 62:
+        printk(KERN_INFO "sw3 interrupt ocurred!\n");   
+        switch_led();
+        break;
+    case 63:
+        printk(KERN_INFO "sw4 interrupt ocurred!\n");
+        if(&timer){
+        del_timer(&timer);
+        printk(KERN_INFO "timer stopped\n");    
+        }
+        else{
+        printk(KERN_INFO "no timer\n");    
+        }    
+        kthread_timer_stop();
+        for ( i = 0; i < 4; i++)
+        {
+            gpio_free(sw[i]);
+            gpio_free(led[i]);
+        }
+        
+        break;
+    default:
+        break;
+    }
+    return 0; 
 }
 
 
+
 static int switch_module_init(void){
-    int ret, i, val;
+    int val;
 
     int res, i;
      printk(KERN_INFO "switch_interrupt_init!\n"); 
@@ -210,9 +293,6 @@ static int switch_module_init(void){
             printk(KERN_INFO "request_irq failed!\n");
      }
      
-    
-    
-    
     return 0;
 }
 
@@ -231,8 +311,10 @@ static void switch_module_exit(void){
     
     for ( i = 0; i < 4 ; i++)
     {
+        free_irq(gpio_to_irq(sw[i]),(void *)(irq_handler));
         gpio_free(sw[i]);
     }
+    del_timer(&timer);
     
 }
 
