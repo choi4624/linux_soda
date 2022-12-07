@@ -153,7 +153,7 @@ static void setled(int i){
     }
 }
 
-
+// irq 동작 정의
 irqreturn_t irq_handler(int irq, void *dev_id){
     printk(KERN_INFO "Debug %d\n", irq);
     int condition =0;
