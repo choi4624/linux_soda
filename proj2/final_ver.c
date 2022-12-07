@@ -21,6 +21,16 @@ struct task_struct *thread_id = NULL;
 int ledflag[3] = {0,0,0};
 irqreturn_t irq_handler(int irq, void *dev_id);
 
+
+/* 코드 설명 
+
+    irq 안에 동작하는 조건을 2개로 분기를 만들어서 진행 
+    3번째 (sw2)를 누르면 condition이 바뀌면서 동작이 변화 
+    변화된 동작에서는 led 스위치 조작 버튼이 되고 
+    4번째 sw3을 누르면 다시 condition이 변경되도록 구조 제작 
+    kthread 오류는 버그인가? 
+*/
+ 
 static void timer_cb(struct timer_list *timer){
     int ret, i;
     printk(KERN_INFO "timer callback function !\n");
