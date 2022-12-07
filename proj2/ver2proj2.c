@@ -19,6 +19,8 @@ int led[4] = {23, 24, 25, 1}, flag = 0;
 static struct timer_list timer;
 struct task_struct *thread_id = NULL;
 int ledflag[3] = {0};
+irqreturn_t irq_handler2(int irq, void *dev_id);
+irqreturn_t irq_handler(int irq, void *dev_id);
 
 static void timer_cb(struct timer_list *timer){
     int ret, i;
@@ -106,10 +108,10 @@ static void switch_led(int oper){
         printk(KERN_INFO"led change!\n");
            if(ledflag[oper] == 1) 
            {
-            ledflag[oper] = 0
+            ledflag[oper] = 0;
            }
            else{
-            ledflag[oper] = 1
+            ledflag[oper] = 1;
            }
         
         for (i = 0; i < 3; i++)
@@ -157,64 +159,16 @@ static void kthread_timer_stop(void){
     }
 }
 
-
-irqreturn_t irq_handler(int irq, void *dev_id){
-    printk(KERN_INFO "Debug %d\n", irq);
-    
-
-    switch (irq)
-    {
-
-    case 60:
-        printk(KERN_INFO "sw1 interrupt ocurred!\n");
-        printk(KERN_INFO "timer delete!\n");    
-        if(timer){
-        del_timer(&timer);
-        printk(KERN_INFO "timer stopped\n");    
-        }
-        else{
-        printk(KERN_INFO "no timer\n");    
-        }    
-        timer_led();
-        break;
-    case 61:
-        printk(KERN_INFO "sw2 interrupt ocurred!\n");
-        printk(KERN_INFO "timer delete!\n");    
-        if(timer){
-        del_timer(&timer);
-        printk(KERN_INFO "timer stopped\n");    
-        }
-        else{
-        printk(KERN_INFO "no timer\n");    
-        }    
-        kthread_timer_start();
-        break;
-    case 62:
-        printk(KERN_INFO "sw3 interrupt ocurred!\n");   
-        if(timer){
-        del_timer(&timer);
-        printk(KERN_INFO "timer stopped\n");    
-        }
-        else{
-        printk(KERN_INFO "no timer\n");    
-        }    
-        switch_interrupt();
-        break;
-    case 63:
-        printk(KERN_INFO "sw4 interrupt ocurred!\n");
-        if(timer){
-        del_timer(&timer);
-        printk(KERN_INFO "timer stopped\n");    
-        }
-        else{
-        printk(KERN_INFO "no timer\n");    
-        }    
-        switch_led();
-        break;
-    default:
-        break;
-    }
-    return 0; 
+static void switch_interrupt_exit(void){
+    int res, i;
+     printk(KERN_INFO "switch_interrupt_exit!\n"); 
+     for ( i = 0; i < 4; i++)
+     {
+        free_irq(gpio_to_irq(sw[i]),(void *)(irq_handler2));
+        gpio_free(sw[i]);
+        res = request_irq(gpio_to_irq(sw[i]), (irq_handler_t)irq_handler, IRQF_TRIGGER_RISING,"IRQ",(void *)(irq_handler));
+     }
+       
 }
 
 static void switch_interrupt(void){
@@ -228,9 +182,9 @@ static void switch_interrupt(void){
         {
             printk(KERN_INFO "led_module gpio_Request failed\n");
         }
-
+        free_irq(gpio_to_irq(sw[i]),(void *)(irq_handler));
         res = gpio_request(sw[i], "sw");
-        res = request_irq(gpio_to_irq(sw[i]), (irq_handler_t)irq_handler2, IRQF_TRIGGER_RISING,"IRQ",(void *)(irq_handler));
+        res = request_irq(gpio_to_irq(sw[i]), (irq_handler_t)irq_handler2, IRQF_TRIGGER_RISING,"IRQ",(void *)(irq_handler2));
         if(res<0)
             printk(KERN_INFO "request_irq failed!\n");
      }
@@ -239,21 +193,23 @@ static void switch_interrupt(void){
 }
 
 irqreturn_t irq_handler2(int irq, void *dev_id){
+    int i, ret, val;
+    int condtion;
     printk(KERN_INFO "Debug %d\n", irq);
     switch (irq)
     {
 
     case 60:
         printk(KERN_INFO "sw1 interrupt ocurred!\n");
-        switch_led(0);
+        condtion = 0;
         break;
     case 61:
         printk(KERN_INFO "sw2 interrupt ocurred!\n");
-        switch_led(1);
+        condtion = 1;
         break;
     case 62:
         printk(KERN_INFO "sw3 interrupt ocurred!\n");
-        switch_led(2);
+        condtion = 2;
         break;
     case 63:
         printk(KERN_INFO "sw4 interrupt ocurred!\n");
@@ -262,19 +218,82 @@ irqreturn_t irq_handler2(int irq, void *dev_id){
     default:
         break;
     }
+        printk(KERN_INFO"led change!\n");
+        if(ledflag[condtion] == 1) 
+        {
+            ledflag[condtion] = 0;
+        }
+           else{
+            ledflag[condtion] = 1;
+           }
+        
+        for (i = 0; i < 3; i++)
+        {
+            if (i == condition)
+            {
+                gpio_direction_output(led[i], ledflag[condtion]);
+            }
+        }
     return 0; 
 }
 
-static void switch_interrupt_exit(void){
-    int res, i;
-     printk(KERN_INFO "switch_interrupt_exit!\n"); 
-     for ( i = 0; i < 4; i++)
-     {
-        free_irq(gpio_to_irq(sw[i]),(void *)(irq_handler2));
-        gpio_free(sw[i]);
-     }
-       
+irqreturn_t irq_handler(int irq, void *dev_id){
+    printk(KERN_INFO "Debug %d\n", irq);
+    
+
+    switch (irq)
+    {
+
+    case 60:
+        printk(KERN_INFO "sw1 interrupt ocurred!\n");
+        printk(KERN_INFO "timer delete!\n");    
+        if(&timer){
+        del_timer(&timer);
+        printk(KERN_INFO "timer stopped\n");    
+        }
+        else{
+        printk(KERN_INFO "no timer\n");    
+        }    
+        timer_led();
+        break;
+    case 61:
+        printk(KERN_INFO "sw2 interrupt ocurred!\n");
+        printk(KERN_INFO "timer delete!\n");    
+        if(&timer){
+        del_timer(&timer);
+        printk(KERN_INFO "timer stopped\n");    
+        }
+        else{
+        printk(KERN_INFO "no timer\n");    
+        }    
+        kthread_timer_start();
+        break;
+    case 62:
+        printk(KERN_INFO "sw3 interrupt ocurred!\n");   
+        switch_interrupt();
+        break;
+    case 63:
+        printk(KERN_INFO "sw4 interrupt ocurred!\n");
+        if(&timer){
+        del_timer(&timer);
+        printk(KERN_INFO "timer stopped\n");    
+        }
+        else{
+        printk(KERN_INFO "no timer\n");    
+        }    
+        
+        break;
+    default:
+        break;
+    }
+    return 0; 
 }
+
+
+
+
+
+
 
 static int switch_module_init(void){
     int val;
