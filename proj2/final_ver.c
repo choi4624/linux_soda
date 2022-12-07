@@ -19,6 +19,7 @@ int led[4] = {23, 24, 25, 1}, flag = 0;
 static struct timer_list timer;
 struct task_struct *thread_id = NULL;
 int ledflag[3] = {0,0,0};
+int condition =0;
 irqreturn_t irq_handler(int irq, void *dev_id);
 
 
@@ -153,20 +154,20 @@ static void setled(int i){
     if (ledflag[i] == 0)
     {
             gpio_direction_output(led[i],HIGH);
-            ledflag[i] == 1;
+            ledflag[i] = 1;
     }
     else
     {
             gpio_direction_output(led[i],HIGH);
-            ledflag[i] == 0;
+            ledflag[i] = 0;
     }
 }
 
 // irq 동작 정의
 irqreturn_t irq_handler(int irq, void *dev_id){
     printk(KERN_INFO "Debug %d\n", irq);
-    int condition =0;
-    int ledset;
+    
+    int i;
 
     switch (irq)
     {
@@ -174,11 +175,14 @@ irqreturn_t irq_handler(int irq, void *dev_id){
     case 60:
         printk(KERN_INFO "sw1 interrupt ocurred!\n");
         
-        if (condition == 1)
+        if (condition>0)
         {
             setled(0);
+            printk(KERN_INFO "%d condition!\n", condition); 
         }
-        else{
+        else if(condition)
+        {
+            printk(KERN_INFO "%d condition passed!\n", condition); 
             for ( i = 0; i < 4; i++)
             {
                 gpio_free(led[i]);
@@ -192,11 +196,13 @@ irqreturn_t irq_handler(int irq, void *dev_id){
         break;
     case 61:
         
-        if (condition == 1)
+        if (condition>0)
         {
             setled(1);
+            printk(KERN_INFO "%d condition!\n", condition); 
         }
         else{
+            printk(KERN_INFO "%d condition passed!\n", condition); 
                 for ( i = 0; i < 4; i++)
             {
                 gpio_free(led[i]);
@@ -210,11 +216,13 @@ irqreturn_t irq_handler(int irq, void *dev_id){
         printk(KERN_INFO "sw3 interrupt ocurred!\n");   
         
 
-        if (condition == 1)
+        if (condition>0)
         {
             setled(2);
+            printk(KERN_INFO "%d condition!\n", condition); 
         }
         else{
+            printk(KERN_INFO "%d condition passed!\n", condition); 
             for ( i = 0; i < 4; i++)
                 {
                     gpio_free(led[i]);
@@ -226,6 +234,8 @@ irqreturn_t irq_handler(int irq, void *dev_id){
                     gpio_request(led[i], "LED");
                 }
             condition = 1;
+
+            printk(KERN_INFO "%d condition!\n", condition);    
         }
         break;
     case 63:
@@ -238,6 +248,7 @@ irqreturn_t irq_handler(int irq, void *dev_id){
         printk(KERN_INFO "timer stopped\n");       
         kthread_timer_stop();
         condition = 0;
+        printk(KERN_INFO "%d condition!\n", condition); 
         break;
     default:
         break;

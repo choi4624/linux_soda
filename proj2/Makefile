@@ -1,5 +1,5 @@
 CC = gcc
-obj-m := proj2.o
+obj-m := final_ver.o
 KDIR := /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
 
