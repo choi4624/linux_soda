@@ -21,7 +21,7 @@ struct task_struct *thread_id = NULL;
 int ledflag[3] = {0,0,0};
 int condition =0;
 irqreturn_t irq_handler(int irq, void *dev_id);
-
+int base;
 
 /* 코드 설명 
     irq 안에 동작하는 조건을 2개로 분기를 만들어서 진행 
@@ -121,7 +121,7 @@ static int led_cycle_timer(void *arg){
 }
 
 static int kthread_timer_start(void){
-int i, ret;
+int ret;
 printk(KERN_INFO"led_kthread_init!\n");
         if (thread_id == NULL)
         {
@@ -158,7 +158,7 @@ static void setled(int i){
     }
     else
     {
-            gpio_direction_output(led[i],HIGH);
+            gpio_direction_output(led[i],LOW);
             ledflag[i] = 0;
     }
 }
