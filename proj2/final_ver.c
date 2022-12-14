@@ -59,7 +59,7 @@ static void timer_cb(struct timer_list *timer){
 }
 
 static void timer_led(void){
-    int i, ret;
+    int i, ret, unuse;
     printk(KERN_INFO"led_module_init -timer!\n");
     for (i = 0; i < 4; i++)
     {
@@ -91,6 +91,7 @@ static int led_cycle_timer(void *arg){
         }
     }
     printk(KERN_INFO "kthread function !\n");
+
     while (!kthread_should_stop())
     {
         temp = value; 
@@ -133,8 +134,6 @@ printk(KERN_INFO"led_kthread_init!\n");
 
 static void kthread_timer_stop(void){
     int i;
-
-
     printk(KERN_INFO "kthread timer stop ocurred!\n");
     if (thread_id)  
     {
@@ -142,12 +141,7 @@ static void kthread_timer_stop(void){
         thread_id = NULL;
         printk(KERN_INFO "kthread timer stop success!\n");
     }
-        for ( i = 0; i < 4; i++)
-    {
 
-        gpio_free(led[i]);
-
-    }
 }
 
 static void setled(int i){
@@ -171,18 +165,17 @@ irqreturn_t irq_handler(int irq, void *dev_id){
 
     switch (irq)
     {
-
     case 60:
         printk(KERN_INFO "sw1 interrupt ocurred!\n");
-        
         if (condition>0)
         {
             setled(0);
             printk(KERN_INFO "%d condition!\n", condition); 
         }
-        else if(condition)
+        else
         {
             printk(KERN_INFO "%d condition passed!\n", condition); 
+            kthread_timer_stop();
             for ( i = 0; i < 4; i++)
             {
                 gpio_free(led[i]);
@@ -191,11 +184,9 @@ irqreturn_t irq_handler(int irq, void *dev_id){
             del_timer(&timer);
             printk(KERN_INFO "timer stopped\n");  
             timer_led();
-        }
-        
+        } 
         break;
     case 61:
-        
         if (condition>0)
         {
             setled(1);
@@ -203,6 +194,7 @@ irqreturn_t irq_handler(int irq, void *dev_id){
         }
         else{
             printk(KERN_INFO "%d condition passed!\n", condition); 
+            kthread_timer_stop();
                 for ( i = 0; i < 4; i++)
             {
                 gpio_free(led[i]);
@@ -214,8 +206,6 @@ irqreturn_t irq_handler(int irq, void *dev_id){
         break;
     case 62:
         printk(KERN_INFO "sw3 interrupt ocurred!\n");   
-        
-
         if (condition>0)
         {
             setled(2);
@@ -223,6 +213,7 @@ irqreturn_t irq_handler(int irq, void *dev_id){
         }
         else{
             printk(KERN_INFO "%d condition passed!\n", condition); 
+            kthread_timer_stop();
             for ( i = 0; i < 4; i++)
                 {
                     gpio_free(led[i]);
@@ -240,13 +231,13 @@ irqreturn_t irq_handler(int irq, void *dev_id){
         break;
     case 63:
         printk(KERN_INFO "sw4 interrupt ocurred!\n");
+        kthread_timer_stop();
         for ( i = 0; i < 4; i++)
         {
             gpio_free(led[i]);
         }
         del_timer(&timer);
         printk(KERN_INFO "timer stopped\n");       
-        kthread_timer_stop();
         condition = 0;
         printk(KERN_INFO "%d condition!\n", condition); 
         break;
